@@ -23,6 +23,28 @@ TRANSACTION_SCHEMA = StructType([
 ])
 
 
+def print_stats(name, data):
+    print('Dataset: ' + name)
+    print(f'    Rows: {data.count()}, columns: {len(data.columns)}')
+    for field in data.schema.fields:
+        if isinstance(field.dataType, StringType):
+            cardinality = data.select(field.name).na.drop().distinct().count()
+            print(f'    Column `{field.name}` cardinality => {cardinality}')
+        elif isinstance(field.dataType, IntegerType):
+            max_digits = len(str(list(data.groupby().max(field.name).first().asDict().values())[0]))
+            print(f'    Column `{field.name}` max digits => {max_digits}')
+
+
+def print_transaction_stats(transactions, accounts):
+    transactions_by_user = transactions.join(accounts, accounts.id == transactions.accounts_id) \
+        .groupBy('user_id').count().groupBy()
+    min_count = list(transactions_by_user.min('count').first().asDict().values())[0]
+    max_count = list(transactions_by_user.max('count').first().asDict().values())[0]
+    print('Additional transactions stats:')
+    print(f'    Min transaction count => {min_count}')
+    print(f'    Max transaction count => {max_count}')
+
+
 def group_by_top3_accounts(accounts):
     window = Window.partitionBy(accounts.user_id).orderBy(accounts.balance.desc())
     df = accounts.select("*", rank().over(window).alias('rank'))
@@ -71,6 +93,10 @@ def run():
     accounts = spark.read.csv("dataset/accounts.csv", schema=ACCOUNT_SCHEMA, header=True)
     transactions = spark.read.csv("dataset/transactions.csv", schema=TRANSACTION_SCHEMA, header=True)
 
+    print_stats('users', users)
+    print_stats('accounts', accounts)
+    print_stats('transactions', transactions)
+    print_transaction_stats(transactions, accounts)
 
     accounts = accounts.na.drop()
     transactions = transactions.na.drop()
