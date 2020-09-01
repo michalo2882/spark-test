@@ -43,6 +43,15 @@ def create_gender_labels(users):
         Window.orderBy("gender")) - 1)
 
 
+def join_accounts_and_users(accounts, users, name_labels, gender_labels):
+    return users.join(accounts, users.id == accounts.user_id).drop("user_id") \
+        .join(name_labels, users.name == name_labels.name, 'left').drop("name") \
+        .withColumnRenamed("index", "name") \
+        .join(gender_labels, users.gender == gender_labels.gender, 'left').drop("gender") \
+        .withColumnRenamed("index", "gender") \
+        .select("id", "name", "gender", "balance_account_0", "balance_account_1", "balance_account_2")
+
+
 def run():
     spark = SparkSession \
         .builder \
@@ -59,6 +68,8 @@ def run():
 
     name_labels, gender_labels = create_name_labels(users), create_gender_labels(users)
     filtered_accounts = group_by_top3_accounts(accounts)
+
+    user_accounts = join_accounts_and_users(filtered_accounts, users, name_labels, gender_labels)
 
 if __name__ == '__main__':
     run()
