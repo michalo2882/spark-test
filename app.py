@@ -1,4 +1,6 @@
 from pyspark.sql import SparkSession
+from pyspark.sql.window import Window
+from pyspark.sql.functions import rank, col, row_number
 from pyspark.sql.types import *
 
 USER_SCHEMA = StructType([
@@ -21,6 +23,26 @@ TRANSACTION_SCHEMA = StructType([
 ])
 
 
+def group_by_top3_accounts(accounts):
+    window = Window.partitionBy(accounts.user_id).orderBy(accounts.balance.desc())
+    df = accounts.select("*", rank().over(window).alias('rank'))
+    df = df.filter(df['rank'] <= 3)
+    return df.groupBy("user_id").pivot("rank").max("balance").na.fill(-1) \
+        .withColumnRenamed("1", "balance_account_0") \
+        .withColumnRenamed("2", "balance_account_1") \
+        .withColumnRenamed("3", "balance_account_2")
+
+
+def create_name_labels(users):
+    return users.select("name").distinct().na.drop().orderBy("name").withColumn("index", row_number().over(
+        Window.orderBy("name")) - 1)
+
+
+def create_gender_labels(users):
+    return users.select("gender").distinct().na.drop().orderBy("gender").withColumn("index", row_number().over(
+        Window.orderBy("gender")) - 1)
+
+
 def run():
     spark = SparkSession \
         .builder \
@@ -31,6 +53,12 @@ def run():
     accounts = spark.read.csv("dataset/accounts.csv", schema=ACCOUNT_SCHEMA, header=True)
     transactions = spark.read.csv("dataset/transactions.csv", schema=TRANSACTION_SCHEMA, header=True)
 
+
+    accounts = accounts.na.drop()
+    transactions = transactions.na.drop()
+
+    name_labels, gender_labels = create_name_labels(users), create_gender_labels(users)
+    filtered_accounts = group_by_top3_accounts(accounts)
 
 if __name__ == '__main__':
     run()
