@@ -52,6 +52,15 @@ def join_accounts_and_users(accounts, users, name_labels, gender_labels):
         .select("id", "name", "gender", "balance_account_0", "balance_account_1", "balance_account_2")
 
 
+def join_accounts_and_transactions(transactions, accounts):
+    window = Window.partitionBy(accounts.user_id).orderBy(accounts.id)
+    accounts = accounts.select("id", "user_id", (rank().over(window) - 1).alias('account_number'))
+    return transactions.alias('t') \
+        .join(accounts.alias('user'), accounts.id == transactions.accounts_id) \
+        .orderBy("user_id", "timestamp") \
+        .select("t.id", "user_id", "timestamp", "value", "account_number")
+
+
 def run():
     spark = SparkSession \
         .builder \
@@ -70,6 +79,8 @@ def run():
     filtered_accounts = group_by_top3_accounts(accounts)
 
     user_accounts = join_accounts_and_users(filtered_accounts, users, name_labels, gender_labels)
+
+    transaction_and_accounts = join_accounts_and_transactions(transactions, accounts)
 
 if __name__ == '__main__':
     run()
