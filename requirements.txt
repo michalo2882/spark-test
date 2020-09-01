@@ -1,0 +1,4 @@
+findspark
+numpy
+pandas
+tensorflow-cpu
