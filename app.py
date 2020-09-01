@@ -82,5 +82,11 @@ def run():
 
     transaction_and_accounts = join_accounts_and_transactions(transactions, accounts)
 
+    name_labels.write.parquet("name-labels.parquet", mode='overwrite')
+    gender_labels.write.parquet("gender-labels.parquet", mode='overwrite')
+    user_accounts.write.parquet("user-accounts.parquet", mode='overwrite')
+    transaction_and_accounts.write.parquet("transactions.parquet", mode='overwrite')
+
+
 if __name__ == '__main__':
     run()
